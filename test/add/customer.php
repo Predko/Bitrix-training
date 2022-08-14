@@ -51,14 +51,10 @@ else
 		"ENTITY_COUNT" => "20",
 		"ENTITY_FIELDS" => array(
 			0 => "0",
-			1 => "2",
-			2 => "3",
-			3 => "4",
-			4 => "5",
-			5 => "6",
-			6 => "7",
+			1 => "1",
+			2 => "2",
 		),
-		"ENTITY_NAME" => "Contract",
+		"ENTITY_NAME" => "Customer",
 		"COMPONENT_TEMPLATE" => ".default"
 	),
 	false
