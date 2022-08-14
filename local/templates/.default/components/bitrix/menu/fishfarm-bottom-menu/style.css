@@ -1,0 +1,13 @@
+/* Left menu*/
+nav#bottom-menu ul li.nav-item a
+{
+	color: #212529;
+}
+
+nav#bottom-menu ul li.nav-item a:hover
+{
+	color:#f4623a;
+}
+
+
+
