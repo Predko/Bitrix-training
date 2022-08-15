@@ -51,7 +51,7 @@ $arComponentParameters = array(
 		),
 		"ENTITY_COUNT"  =>  Array(
 			"PARENT" => "BASE",
-			"NAME" => GetMessage("PREDKO_ENTITY_LIST_ENTITY_DESC_LIST_CONT"),
+			"NAME" => GetMessage("PREDKO_ENTITY_LIST_ENTITY_DESC_LIST_COUNT"),
 			"TYPE" => "STRING",
 			"DEFAULT" => "20",
 		),

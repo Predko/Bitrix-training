@@ -73,6 +73,7 @@ debug($arResult);
     <input type="text" name="Name">
     <label for="UNP">УНП организации</label>
     <input type="number" name="UNP">
+    <input name="form_file" class="inputfile1" size="0" type="file">
     <input type="submit" value="Добавить">
 </form>
 
