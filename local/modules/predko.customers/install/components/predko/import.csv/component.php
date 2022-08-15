@@ -34,7 +34,7 @@ if(check_bitrix_sessid())
 	return;
 }
 
-debug($arParams);
+//debug($arParams);
 
 if(!isset($arParams["CACHE_TIME"]))
 	$arParams["CACHE_TIME"] = 300;

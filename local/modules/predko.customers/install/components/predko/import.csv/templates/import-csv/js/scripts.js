@@ -7,7 +7,7 @@
 */
 
 
-function _getFieldNamesFromFile(input, not_used_message) 
+function _getFieldNamesFromFile(input, items, not_used_message) 
 {
     let file = input.files[0];
 
@@ -24,7 +24,7 @@ function _getFieldNamesFromFile(input, not_used_message)
 
     reader.readAsText(blob);
 
-    reader.onload = function(items) {
+    reader.onload = function() {
         createFieldName(reader.result, items);
     };
 
@@ -38,11 +38,9 @@ function _getFieldNamesFromFile(input, not_used_message)
         var strArr = str.split("\r",1);
         // Разбиваем на поля
         var fieldNames = strArr[0].split(";");
-        console.log(fieldNames);
         // Получаем список полей выбранной сущности.
         var efn = document.getElementById("entity-name-fields-id").value;
         var entityFieldNames = items[efn]["FIELD_NAMES"];
-        console.log(entityFieldNames);
         
         createListfieldMatches(entityFieldNames, fieldNames);
     }
@@ -56,13 +54,16 @@ function _getFieldNamesFromFile(input, not_used_message)
             length = entityFieldNames.length;
         }
 
-        var ul = clearAndGetElementById("place_to_select_field_names");
+        var ul = clearAndGetElement();
         if (ul == null)
         {
             alert("Не удалось создать список соответствий полей");
             return;
         }
         
+        // Показываем заголовок
+        document.getElementById('field_names_header').style.display = "block";
+
         for (let i = 0; i < length; i++) 
         {
             var used = false;
@@ -80,13 +81,12 @@ function _getFieldNamesFromFile(input, not_used_message)
                     selected = '';
                 
                 selectStr += '<option value="' + element + '"' + selected + '>' + element + '</option>';
-                console.log(i,indx);
             });
             
             selected = (!used) ? ' selected="selected"' : '';
             
             selectStr += '<option value="not used"' + selected + '>' + not_used_message + '</option><br />';
-            selectStr += '</select>&nbsp;&nbsp;&nbsp;\
+            selectStr += '</select>&nbsp;&nbsp;&nbsp;<==>&nbsp;&nbsp;&nbsp;\
             <select name="ENTITY_NAME_CSV" required="required">';
             used = false;
             fieldNames.forEach((element,indx) => {
@@ -107,18 +107,24 @@ function _getFieldNamesFromFile(input, not_used_message)
             selectStr += '</select><br />'; 
 
             liLast.innerHTML = selectStr;
-            console.log(selectStr);
 
             ul.append(liLast); // вставить liLast в конец <ul>
         }
     }
 }
 
-// Очищает содержимое элемента по id.
+// Скрывает заголовок.
+// Очищает содержимое элемента.
 // Возвращает найденный элемент.
-function clearAndGetElementById(elementID)
+function clearAndGetElement()
 {
-    var element = document.getElementById(elementID);
+    // Скрываем заголовок.
+    document.getElementById('field_names_header').style.display = "none";
+    
+    // Очищаем элемент.
+    var element = document.getElementById('place_to_select_field_names')
     element.innerHTML = "";
     return element;
 }
+
+
