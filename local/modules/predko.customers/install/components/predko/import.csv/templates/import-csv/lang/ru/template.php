@@ -10,6 +10,7 @@
 $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_FILE_DESC'] = 'Импортировать из файла';
 $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_GET_FIELD_NAMES'] = 'Получить список имён полей';
 $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_ENTITY_NAME'] = 'Таблица базы данных';
+$MESS['PREDKO_CUSTOMERS_IMPORT_CSV_NOT_USED'] = 'Поле не используется';
 
 
 ?>

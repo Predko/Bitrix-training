@@ -15,11 +15,18 @@ Loc::loadMessages(__FILE__);
 		
 		<!-- Выбор сущности-->
 		<label for="ENTITY_NAME"><?=Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_ENTITY_NAME');?></label>
-		<select name="ENTITY_NAME" id="entity-name-fields-id" required="required">
+		<select name="ENTITY_NAME" id="entity-name-fields-id" required="required"
+					onchange='clearAndGetElementById("place_to_select_field_names")'>
 			<?foreach($arResult["ITEMS"] as $name => $arItem):?>
 				<option value="<?=$name?>"><?=$arItem["ENTITY_DESC"]?></option>
 		  <?endforeach?>
 		</select><br />
+		
+		<!-- Здесь вставляется список имён полей в бд и импортируемом файле,
+		     для выбора их соответствия.
+		-->
+		<ul id="place_to_select_field_names">
+		</ul>
 		
 		<!-- Выбор файла-->
 		<label for="FILE_CSV"><?=Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_FILE_DESC');?></label>
@@ -31,51 +38,120 @@ Loc::loadMessages(__FILE__);
 	<script>
 		function getFieldNamesFromFile(input) 
 		{
-			let file = input.files[0];
+			getFieldNamesFromFile(input, "<?=Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NOT_USED')?>");
+			// let file = input.files[0];
 
-			if (file.type != "text/csv")
-			{
-				alert("Need a text/csv file!");
+			// if (file.type != "text/csv")
+			// {
+			// 	alert("Need a text/csv file!");
 				
-				return;
-			};
+			// 	return;
+			// };
 			
-			console.log(file.name, file.type, file.size);
+			// var blob = file.slice(0, 500);
 			
-			var blob = file.slice(0, 500);
-			
-			let reader = new FileReader();
+			// let reader = new FileReader();
 
-			reader.readAsText(blob);
+			// reader.readAsText(blob);
 
-			reader.onload = function() {
-				createFieldName(reader.result);
-			};
+			// reader.onload = function() {
+			// 	createFieldName(reader.result);
+			// };
 
-			reader.onerror = function() {
-				console.log(reader.error);
-			};
+			// reader.onerror = function() {
+			// 	console.log(reader.error);
+			// };
 
-			function createFieldName(str) {
-				var str = reader.result;
-				// Выделяем первую строку
-				var strArr = str.split("\r",1);
-				// Разбиваем на поля
-				var fieldNames = strArr[0].split(";");
-				console.log(fieldNames);
-				// Формируем id элемента в зависимости от выбранного значения в entity-name-fields-id
-				// var efn_id = document.getElementById("entity-name-fields-id").value + "-field-names";
-				// // Получем массив полей выбранного элемента
-				// var entityFieldNames = document.getElementById(efn_id).name;
-				var efn = document.getElementById("entity-name-fields-id").value;
-				var items = <?=json_encode($arResult["ITEMS"])?>;
-				console.log(items);
+			// function createFieldName(str) {
+			// 	var str = reader.result;
+			// 	// Выделяем первую строку
+			// 	var strArr = str.split("\r",1);
+			// 	// Разбиваем на поля
+			// 	var fieldNames = strArr[0].split(";");
+			// 	console.log(fieldNames);
+			// 	// Получаем список полей выбранной сущности.
+			// 	var efn = document.getElementById("entity-name-fields-id").value;
+			// 	var entityFieldNames = <?=json_encode($arResult["ITEMS"])?>[efn]["FIELD_NAMES"];
+			// 	console.log(entityFieldNames);
 				
-				var entityFieldNames = items[efn]["FIELD_NAMES"];
+			// 	createListfieldMatches(entityFieldNames, fieldNames);
+			// }
 
-				alert(entityFieldNames);
-			}
+			// function createListfieldMatches(entityFieldNames, fieldNames) 
+			// {
+			// 	// Число полей в списке.
+			// 	var length = fieldNames.length;
+			// 	if (entityFieldNames.length > length)
+			// 	{
+			// 		length = entityFieldNames.length;
+			// 	}
+
+			// 	var ul = clearAndGetElementById("place_to_select_field_names");
+			// 	if (ul == null)
+			// 	{
+			// 		alert("Не удалось создать список соответствий полей");
+			// 		return;
+			// 	}
+
+			// 	for (let i = 0; i < length; i++) 
+			// 	{
+			// 		var used = false;
+			// 		var selected = '""';
+
+			// 		let liLast = document.createElement('li');
+			// 		var selectStr = '<select name="ENTITY_NAME_TABLE" required="required">';
+			// 		entityFieldNames.forEach((element,indx) => {
+			// 			if (typeof indx !== 'undefined' && i == indx)
+			// 			{
+			// 				used = true;
+			// 				selected = ' selected="selected"';
+			// 			}
+			// 			else
+			// 				selected = '';
+						
+			// 			selectStr += '<option value="' + element + '"' + selected + '>' + element + '</option>';
+			// 			console.log(i,indx);
+			// 		});
+					
+			// 		selected = (!used) ? ' selected="selected"' : '';
+					
+			// 		selectStr += '<option value="not used"' + selected + '><?=Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NOT_USED')?></option><br />';
+			// 		selectStr += '</select>&nbsp;&nbsp;&nbsp;\
+			// 		<select name="ENTITY_NAME_CSV" required="required">';
+			// 		used = false;
+			// 		fieldNames.forEach((element,indx) => {
+			// 			if (typeof indx !== 'undefined' && i == indx)
+			// 			{
+			// 				used = true;
+			// 				selected = ' selected="selected"';
+			// 			}
+			// 			else
+			// 				selected = '';
+						
+			// 			selectStr += '<option value="' + element + '"' + selected + '>' + element + '</option><br />';
+			// 		});
+					
+			// 		selected = (!used) ? ' selected="selected"' : '';
+					
+			// 		selectStr += '<option value="not used"' + selected + '><?=Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NOT_USED')?></option><br />';
+			// 		selectStr += '</select><br />'; 
+
+			// 		liLast.innerHTML = selectStr;
+			// 		console.log(selectStr);
+
+			// 		ul.append(liLast); // вставить liLast в конец <ul>
+			// 	}
+			// }
 		}
+
+		// Очищает содержимое элемента по id.
+		// Возвращает найденный элемент.
+		// function clearAndGetElementById(elementID)
+		// {
+		// 	var element = document.getElementById(elementID);
+		// 	element.innerHTML = "";
+		// 	return element;
+		// }
 	</script>
 	<?foreach ($arResult["ITEMS"] as $arItem):?>
 		<span><?=$arItem["ENTITY_NAME"]?>&nbsp;&nbsp;<?=$arItem['ENTITY_CLASS_NAME']?></span><br />
