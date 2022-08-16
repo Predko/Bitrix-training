@@ -29,7 +29,7 @@ $request = $context->getRequest();
 
 if(check_bitrix_sessid())
 {
-    debug($request, "request");
+    debug($request->getPost, "request");
 
 	return;
 }

@@ -7,6 +7,10 @@
 * 14-08-2022
 */
 
+//Подключаем ядро 1С Битрикс
+require($_SERVER["DOCUMENT_ROOT"] . '/bitrix/modules/main/include/prolog_before.php');
+
+
 use Bitrix\Main\
 {   Application, 
     Context, 
@@ -18,22 +22,18 @@ global $APPLICATION;
 
 echo "1234567890";
 
-// $context = Application::getInstance()->getContext();
-// $request = $context->getRequest();
+$context = Application::getInstance()->getContext();
+$request = $context->getRequest();
 // переменная класса для работы
 // $request = \Bitrix\Main\Context::getCurrent()->getRequest();
 
-echo "1234567890";
-
 //debug($context);
-debug($_REQUEST);
-
-debug($_POST["file-csv"], "file-csv");
+debug($request);
 
 if( check_bitrix_sessid()       // проверка идентификатора сессии
 )
 {
-    debug($_POST["file-csv"], "file-csv");
+    file_put_contents("formData.php", print_r("request->getValues()=" . var_export($request->getValues(), true), true));
 
 }
 
