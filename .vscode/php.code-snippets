@@ -48,6 +48,13 @@
 		"description": "ShowTitle"
 	},
 
+	"MESS[]":{
+		"prefix": "MESS",
+		"body": [
+			"$$MESS['$1'] = '$2';$3"
+		]
+	},
+
 	"HTML PHP echo": {
 		"prefix": "echo",
 		"body": [

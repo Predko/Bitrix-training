@@ -13,8 +13,9 @@ Loc::loadMessages(__FILE__);
 <div class="news-line">
 	<!-- <form id="file-csv-form" action="<?= POST_FORM_ACTION_URI ?>" method="post"> -->
 	<form id="file-csv-form" action="<?= $arResult['AJAX_HANDLER_URL'] ?>" method="post">
-		<?= bitrix_sessid_post() ?>
 		<input type="hidden" name="lang" value="<? echo LANGUAGE_ID ?>">
+		<input type="hidden" name="type-form-data" value="initial">
+		<?= bitrix_sessid_post() ?>
 
 		<span style="white-space:nowrap">
 		<!-- Выбор файла-->
