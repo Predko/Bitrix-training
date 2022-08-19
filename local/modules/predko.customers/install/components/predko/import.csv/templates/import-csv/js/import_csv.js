@@ -55,7 +55,7 @@ function formSubmit(event) {
 function sendData(formData) {
 	return new Promise((resolve, reject) => {
 		//ajax
-		var HttpRequest = new XMLHttpRequest(); //Создадим объект для отправки AJAX запроса
+		let HttpRequest = new XMLHttpRequest(); //Создадим объект для отправки AJAX запроса
 		HttpRequest.onload = function (e) {
 			if (this.status == 200) {
 				//Проверка что результат отчета успешный (может быть 404 или другие)
@@ -72,22 +72,20 @@ function sendData(formData) {
 
 /**********************************************************************
  * Передаёт на сервер указанный фрагмент файла
- * @param blob передаваемые данные
+ * @param str передаваемые данные
  * @param index {number} номер фрагмента
  * @param size {number} размер фрагмента в байтах
  */
-function SendPartFile(blob, index, size) {
-	var strarr = blob;
-
-	console.log(index, size);
-
+function SendPartFile(str, index, size) {
 	const formData = new FormData(form);
 
-	formData.append('file-data', strarr);
+	formData.append('file-data', str);
 	formData.append('blob-size', size);
 	formData.append('type-form-data', 'get_file');
 	formData.append('file-index-part', index);
-
+	
+	console.log("size= " + size + ", index= " + index);
+	
 	// Отправляем данные формы.
 	sendData(formData)
 		.then((response) => {
@@ -105,7 +103,7 @@ function SendPartFile(blob, index, size) {
  */
 function ReadFromFile(blob) {
 	return new Promise((resolve, reject) => {
-		var reader = new FileReader();
+		let reader = new FileReader();
 
 		reader.readAsText(blob);
 
@@ -125,7 +123,7 @@ function ReadFromFile(blob) {
  *
  *   1. Отправляются данные формы о полях.
  *
- *   Разбивает файл на фрагменты и отправляет их на сервер.
+ *   Разбивает файл на фрагменты размером max_size и отправляет их на сервер.
  *   Передача ассинхронна, фрагменты могут прийти в произвольном порядке.
  *
  */
@@ -143,24 +141,29 @@ function SendFile(response) {
 		return;
 	}
 
-	const MAX_SIZE = 524288; // 512 kb
+	var max_size = 1000; //524288; // 512 kb
 
-	var currentBlob = {
-		size: MAX_SIZE,
+	let currentBlob = {
+		size: max_size,
 		rest_blob: file.size,
 		begin: 0,
 		index: 0,
 	};
 
-	// Разбиваем данные на фрагменты размером MAX_SIZE и передаём серверу.
+	// Разбиваем данные на фрагменты размером max_size
 	do {
 		currentBlob.size =
-			currentBlob.rest_blob < MAX_SIZE ? currentBlob.rest_blob : MAX_SIZE;
+		currentBlob.rest_blob < max_size
+		? currentBlob.rest_blob
+		: max_size;
+		
 		console.log(currentBlob);
-		var blob = file.slice(
+
+		let blob = file.slice(
 			currentBlob.begin,
 			currentBlob.begin + currentBlob.size
 		);
+
 		console.log(blob.size);
 
 		let i = currentBlob.index;
@@ -172,7 +175,9 @@ function SendFile(response) {
 			.catch((error) => alert(error));
 
 		currentBlob.index++;
+
 		currentBlob.rest_blob -= currentBlob.size;
+
 		currentBlob.begin += currentBlob.size;
 	} while (currentBlob.rest_blob > 0);
 }

@@ -58,4 +58,4 @@ Loc::loadMessages(__FILE__);
 	</script>
 </div>
 
-<? $this->addExternalJS($templateFolder . "\js\scripts.js"); ?>
+<? $this->addExternalJS($templateFolder . "\js\import_csv.js"); ?>

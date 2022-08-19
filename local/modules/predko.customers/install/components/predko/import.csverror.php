@@ -1,0 +1,1 @@
+{"FILE_SIZE":"11393","FIELDS":{"ID":"Id","NAME":"NameCompany","UNP":"account","ACCOUNT":"city","ADRESS":"account1","MAIL":"region","PHONE":"phoneNumber","not used":"UNP"},"CURRENT_FILE_SIZE":0}
