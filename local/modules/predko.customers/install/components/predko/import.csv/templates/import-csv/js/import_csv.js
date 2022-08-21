@@ -46,8 +46,9 @@ function formSubmit(event) {
 	// Отправляем данные формы.
 	sendData(formData)
 		.then((response) => JSON.parse(response))
+		// Отправляем файл.
 		.then((response) => SendFile(response))
-		.catch((error) => alert(error));
+		.catch((error) => Message(error));
 }
 
 /**********************************************************************
@@ -74,6 +75,15 @@ function sendData(formData) {
 		HttpRequest.send(formData); //Отправка запроса на сервер
 	});
 }
+
+
+// Вывод информационных сообщений.
+function Message(text) {
+
+	alert(text);
+	
+}
+
 
 /**********************************************************************
  * Передаёт на сервер указанный фрагмент файла.
@@ -105,11 +115,8 @@ async function SendPartFile(
 
 	// Отправляем данные формы.
 	return sendData(formData)
-		.then((response) => {
-			if (JSON.parse(response).result == 'end')
-				alert('Данные переданы успешно');
-		})
-		.catch((error) => alert(error));
+		.then((response) => JSON.parse(response))
+		.catch((error) => Message(error));
 }
 
 /**********************************************************************
@@ -158,14 +165,14 @@ async function getSearchArr(blob, overlapBefore) {
  */
 async function SendFile(response) {
 	if (response.result == 'error') {
-		alert(response.message);
+		Message(response.message);
 		return;
 	}
 
 	let file = document.getElementById('input-file-csv').files[0];
 
 	if (file == null || file.type != 'text/csv') {
-		alert('Need a text/csv file!');
+		Message('Need a text/csv file!');
 
 		return;
 	}
@@ -206,14 +213,14 @@ async function SendFile(response) {
 		// Читаем фрагмент из файла.
 		resultStr = await ReadFromFile(blob)
 			.then((result) => result) // передаём.
-			.catch((error) => alert(error));
+			.catch((error) => Message(error));
 
 		// Вырезаем массив-образец, для поиска начала данных.
 		// {[overlapBefore] [[массив-образец] остальная часть фрагмента] [overlapAfter]}
 		let searchArr = new Uint8Array(await getSearchArr(blob, overlapBefore));
 
 		// Передаём данные.
-		await SendPartFile(
+		var res = await SendPartFile(
 			resultStr,
 			partIndex,
 			size,
@@ -221,6 +228,9 @@ async function SendFile(response) {
 			overlapAfter,
 			searchArr
 		);
+
+		if (res.result == 'end') 
+			Message('Данные переданы успешно');
 
 		currentBlob.index++;
 
@@ -241,7 +251,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 	let file = input.files[0];
 
 	if (file.type != 'text/csv') {
-		alert('Need a text/csv file!');
+		Message('Need a text/csv file!');
 
 		return;
 	}
@@ -250,7 +260,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 
 	ReadFromFile(blob)
 		.then((result) => createFieldName(result, items))
-		.catch((error) => alert(error));
+		.catch((error) => Message(error));
 
 	function createFieldName(str, items) {
 		// Выделяем первую строку
@@ -275,7 +285,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 
 		var ul = clearAndGetElement();
 		if (ul == null) {
-			alert('Не удалось создать список соответствий полей');
+			Message('Не удалось создать список соответствий полей');
 			return;
 		}
 

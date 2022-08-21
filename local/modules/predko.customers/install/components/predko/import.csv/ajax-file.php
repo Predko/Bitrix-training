@@ -76,24 +76,6 @@ class ImportCSV
         elseif ($this->CheckIsDataFile())
             return $this->IsError();
 
-        // Проверяем, были ли сохранены поля БД и файла CSV
-        //     if (!$session->has('FIELDS_DB_CSV'))
-        //     {
-        //         echo json_encode(
-        //             [
-        //                 'result' => 'error',
-        //                 'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NO_FIELDS_ERROR')
-        //             ]
-        //         );
-        //         return false;
-        //     }
-
-        // $fields = $session['FIELDS_DB_CSV'];
-
-        // foreach ($fields as $db => $csv)
-        // {
-        // }
-
         return false;
     }
 
