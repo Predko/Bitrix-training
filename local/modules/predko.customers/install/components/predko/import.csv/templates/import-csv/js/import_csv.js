@@ -6,6 +6,10 @@
  * 15-08-2022
  */
 
+// !!! Эта константа должна быть равна такой же константе из файла
+// import.csv\ajax-file.php
+const OVERLAP = 6; // Вырезаем фрагмент с таким отступом до начала фрагмента и после.
+
 document.addEventListener('DOMContentLoaded', ready);
 
 let form;
@@ -41,7 +45,8 @@ function formSubmit(event) {
 
 	// Отправляем данные формы.
 	sendData(formData)
-		.then((response) => SendFile(JSON.parse(response)))
+		.then((response) => JSON.parse(response))
+		.then((response) => SendFile(response))
 		.catch((error) => alert(error));
 }
 
@@ -71,23 +76,35 @@ function sendData(formData) {
 }
 
 /**********************************************************************
- * Передаёт на сервер указанный фрагмент файла
- * @param str передаваемые данные
- * @param index {number} номер фрагмента
- * @param size {number} размер фрагмента в байтах
+ * Передаёт на сервер указанный фрагмент файла.
+ * @param str передаваемые данные.
+ * @param index {number} номер фрагмента.
+ * @param size {number} размер фрагмента в байтах.
+ * @param overlapBefore {number} перекрытие до основных данных.
+ * @param overlapAfter {number} перекрытие после основных данных.
+ * @param searchArr {array} массив-образец для поиска начала основных данных.
  */
-function SendPartFile(str, index, size) {
+async function SendPartFile(
+	str,
+	index,
+	size,
+	overlapBefore,
+	overlapAfter,
+	searchArr
+) {
 	const formData = new FormData(form);
 
 	formData.append('file-data', str);
-	formData.append('blob-size', size);
-	formData.append('type-form-data', 'get_file');
 	formData.append('file-index-part', index);
-	
-	console.log("size= " + size + ", index= " + index);
-	
+	formData.append('blob-size', size);
+	formData.append('overlapBefore', overlapBefore);
+	formData.append('overlapAfter', overlapAfter);
+	formData.append('type-form-data', 'get_file');
+
+	formData.append('search_arr', JSON.stringify(searchArr));
+
 	// Отправляем данные формы.
-	sendData(formData)
+	return sendData(formData)
 		.then((response) => {
 			if (JSON.parse(response).result == 'end')
 				alert('Данные переданы успешно');
@@ -117,17 +134,29 @@ function ReadFromFile(blob) {
 	});
 }
 
+// Вырезает из blob массив данных начиная с overlapBefore, 10 байт.
+async function getSearchArr(blob, overlapBefore) {
+	let blob_sa = blob.slice(overlapBefore, overlapBefore + 10);
+
+	return await new Response(blob_sa).arrayBuffer();
+}
+
 /**********************************************************************
  *
- *   Передача данных для обработки.
+ *   Пофрагментная передача файла.
  *
  *   1. Отправляются данные формы о полях.
  *
  *   Разбивает файл на фрагменты размером max_size и отправляет их на сервер.
- *   Передача ассинхронна, фрагменты могут прийти в произвольном порядке.
+ * 	 Схема фрагмента:
+ *   {[overlapBefore] [[массив-образец 1] остальная часть фрагмента] [overlapAfter]}
+ *
+ *   {[ob] [[м-о 0] очф] [oa]}
+ * 				   {[ob] [[м-о 1] очф] [oa]}
+ * 							     {[ob] [[м-о 2] очф] [oa]}
  *
  */
-function SendFile(response) {
+async function SendFile(response) {
 	if (response.result == 'error') {
 		alert(response.message);
 		return;
@@ -141,44 +170,64 @@ function SendFile(response) {
 		return;
 	}
 
-	var max_size = 1000; //524288; // 512 kb
+	var max_size = 524288; // 512 kb
 
 	let currentBlob = {
-		size: max_size,
+		size: 0,
 		rest_blob: file.size,
 		begin: 0,
 		index: 0,
 	};
 
+	var overlapBefore = 0;
+	var overlapAfter = OVERLAP;
+
 	// Разбиваем данные на фрагменты размером max_size
 	do {
-		currentBlob.size =
-		currentBlob.rest_blob < max_size
-		? currentBlob.rest_blob
-		: max_size;
-		
-		console.log(currentBlob);
+		// Определяем размер части файла для вырезания.
+		if (currentBlob.rest_blob <= max_size - overlapBefore) {
+			// Остаток файла не требует перекрытия в конце.
+			currentBlob.size = currentBlob.rest_blob + overlapBefore;
+			overlapAfter = 0;
+		} else {
+			currentBlob.size = max_size;
+		}
 
+		// Вырезаем фрагмент для отправки.
 		let blob = file.slice(
 			currentBlob.begin,
 			currentBlob.begin + currentBlob.size
 		);
 
-		console.log(blob.size);
-
-		let i = currentBlob.index;
+		// Индекс и размер фрагмента
+		let partIndex = currentBlob.index;
 		let size = blob.size;
 
 		// Читаем фрагмент из файла.
-		ReadFromFile(blob)
-			.then((result) => SendPartFile(result, i, size)) // передаём.
+		resultStr = await ReadFromFile(blob)
+			.then((result) => result) // передаём.
 			.catch((error) => alert(error));
+
+		// Вырезаем массив-образец, для поиска начала данных.
+		// {[overlapBefore] [[массив-образец] остальная часть фрагмента] [overlapAfter]}
+		let searchArr = new Uint8Array(await getSearchArr(blob, overlapBefore));
+
+		// Передаём данные.
+		await SendPartFile(
+			resultStr,
+			partIndex,
+			size,
+			overlapBefore,
+			overlapAfter,
+			searchArr
+		);
 
 		currentBlob.index++;
 
-		currentBlob.rest_blob -= currentBlob.size;
-
-		currentBlob.begin += currentBlob.size;
+		currentBlob.rest_blob -=
+			currentBlob.size - overlapBefore - overlapAfter;
+		overlapBefore = OVERLAP;
+		currentBlob.begin += currentBlob.size - overlapBefore - overlapAfter;
 	} while (currentBlob.rest_blob > 0);
 }
 

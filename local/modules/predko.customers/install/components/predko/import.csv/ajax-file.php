@@ -15,25 +15,29 @@ use \Bitrix\Main\Localization\Loc;
 
 Loc::loadMessages(__FILE__);
 
+// !!! Эта константа должна быть равна такой же константе из файла
+// import.csv\templates\import-csv\js\import_csv.js
+const OVERLAP = 6; // Вырезаем фрагмент с таким отступом до начала фрагмента и после.
+
 $temp_data_file = $_SERVER['DOCUMENT_ROOT'] . "/upload/tmp/predko_customer_import_csv_formData.tmp";
 
-use Bitrix\Main\{
-    Application,
-    // Context, 
-    // Request, 
-    // Server
-};
-use Sale\Handlers\Delivery\Rest\RequestHandler;
+use Bitrix\Main\Application;
 
 global $APPLICATION;
 
 $importCSV = new ImportCSV($temp_data_file);
 
+// Обрабатываем AJAX запрос и импортируем файл данных.
 $importCSV->RequestHandler();
 
+// Отправляем ответ.
 echo $importCSV->GetResponse();
 
 
+
+
+// Класс для обработки запросов и импорта файла CSV
+// для добавления данных в базу данных.
 class ImportCSV
 {
     private $hasError = false;
@@ -41,10 +45,6 @@ class ImportCSV
     private $tmpHeaderFileName;
     private $request;
     private $response;
-
-    private $isDataReady = false;
-
-    private const PART_DELIMITER = '|';
 
     public function __construct(String $temp_file)
     {
@@ -55,6 +55,46 @@ class ImportCSV
         $this->request = Application::getInstance()->getContext()->getRequest();
 
         $this->response = "";
+    }
+
+    /**
+     *
+     * @return bool 
+     * true - ok, 
+     * false - error,
+     * if there was an error - (isError() == true) 
+     * and $this->response['result'] == 'error'
+     * $this->response['message'] - message; 
+     *  
+     **/
+    public function RequestHandler(): bool
+    {
+        if (!$this->CheckSessid())
+            return $this->IsError();
+        elseif ($this->CheckIsInitialFormData())
+            return $this->IsError();
+        elseif ($this->CheckIsDataFile())
+            return $this->IsError();
+
+        // Проверяем, были ли сохранены поля БД и файла CSV
+        //     if (!$session->has('FIELDS_DB_CSV'))
+        //     {
+        //         echo json_encode(
+        //             [
+        //                 'result' => 'error',
+        //                 'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NO_FIELDS_ERROR')
+        //             ]
+        //         );
+        //         return false;
+        //     }
+
+        // $fields = $session['FIELDS_DB_CSV'];
+
+        // foreach ($fields as $db => $csv)
+        // {
+        // }
+
+        return false;
     }
 
     /**
@@ -101,20 +141,26 @@ class ImportCSV
     }
 
     /**
-     *
-     * @param  $data данные
+     * {[beginOffset] [[массив-образец 1] остальная часть фрагмента] [overlapAfter]}
+     * 
+     * @param  $data {string} фрагмент данных со служебными вставками до и после.
+     * @param  $beginOffset {int} смещение данных от начала $data.
+     * @param  $length {int} длина фрагмента данных.
      * @return int|false 
      * false - ошибка записи заголовка.
      * length(bytes) - число записанных байт. 
      **/
-    private function SaveData($data): int|bool
+    private function SaveData($data, $beginOffset, $length): int|bool
     {
-        $file = fopen($this->tmpDataFileName,"ab");
-        $length = fwrite($file, $data);
-        fwrite($file, "\n\n\n");
+        $buffer = substr($data, $beginOffset, $length);
+
+        $file = fopen($this->tmpDataFileName, "ab");
+
+        $resultLength = fwrite($file, $buffer);
+
         fclose($file);
 
-        if (!$length)
+        if (!$resultLength)
         {
             $this->hasError = true;
             $this->response = [
@@ -124,7 +170,7 @@ class ImportCSV
             return false;
         }
 
-        return $length;
+        return $resultLength;
     }
 
 
@@ -150,15 +196,12 @@ class ImportCSV
         }
 
         $header = json_decode($result, null, 512, JSON_OBJECT_AS_ARRAY);
-        file_put_contents("d:/error.php", "\n" . print_r($header, true), FILE_APPEND);
 
         return $header;
     }
 
 
     /**
-     *
-     *
      * @return bool 
      * true - sessid - ok, 
      * false - sessid - wrong($this->response[] - error message)
@@ -220,9 +263,6 @@ class ImportCSV
             return true;
         }
 
-        file_put_contents("d:/error.php", "\n" . print_r($this->request['sting-array-size,true']), FILE_APPEND);
-
-
         $this->hasError = false; // Ошибки не было.
 
         $this->response = [
@@ -231,6 +271,42 @@ class ImportCSV
         ];
 
         return true; // обработано.
+    }
+
+    /**
+     * Ищет подмассив в массиве, полученном из строки.
+     * @param $str {string} строка для перобразования в массив байт, в котором ищем.
+     * @param $searchArr {array} искомый массив.
+     * @return int индекс начала найденного подмассива,
+     *          или -1, если не найден.
+     */
+
+    private function findIndex(string $str, array $searchArr): int
+    {
+        $arr = array_map("ord", str_split($str));
+
+        $end = count($arr);
+        $endSearchArr = count($searchArr);
+        for ($i = 0; $i < count($arr); $i++)
+        {
+            if ($arr[$i] != $searchArr[0])
+                continue;
+
+            $j = 0;
+            $startIndex = $i;
+            for ($k = $i; $j < $endSearchArr && $k < $end; $k++, $j++)
+            {
+                if ($arr[$k] != $searchArr[$j])
+                    break;
+            }
+
+            if ($j == $endSearchArr)
+            {
+                return $startIndex;
+            }
+        }
+
+        return -1;
     }
 
     /**
@@ -248,46 +324,45 @@ class ImportCSV
     {
         if ($this->request['type-form-data'] != 'get_file')
             return false;
-        
-        file_put_contents("d:/error".$this->request['file-index-part'].".tm1", print_r($this->request['file-data'], true), FILE_APPEND);
-        
-        $file = fopen("d:/part_".$this->request['file-index-part'].".tm2","w");
-        $length = fwrite($file, $this->request['file-data']);
-        fclose($file);
 
         if (!$file_info = $this->LoadHeader())
         {   // Ошибка чтения.
             return true;
         }
 
-        $blobSize = intval($this->request['blob-size']);
+        $data = $this->request['file-data'];
+        $beginOffset = $this->request['overlapBefore'];
+        $endOffset = $this->request['overlapAfter'];
+        $search_arr = json_decode($this->request['search_arr'], true);
 
-        // Рассчитываем размер полученных данных.
-        $file_info['CURRENT_FILE_SIZE'] = intval($file_info['CURRENT_FILE_SIZE'])
-            + $blobSize;
+        $blob_size = $this->request['blob-size'];
+        $lengthData = strlen($data);
 
+        $startIndex = $this->findIndex(substr($data, 0, count($search_arr) + $beginOffset + 5), $search_arr);
 
-        //$str = substr($this->request['file-data'], 0, 4);
-        $byteArr = unpack("H*", $this->request['file-data']);
-        
-        file_put_contents("d:/error.php", "\n\n\nbyteArr = " . print_r($byteArr, true), FILE_APPEND);
-
-        // for ($i = 0; $i < 4; $i++)
-        // {
-        //     if (intval($str[$i]) & 0xC000)
-        // }
-
-
-
-
-        // Записываем данные во временный файл.
-        if (!$length = $this->SaveData($this->request['file-data']))
+        // Записываем данные в файл.
+        if (!$length = $this->SaveData(
+            $data,
+            $startIndex,
+            $blob_size - $beginOffset - $endOffset
+        ))
         {   // Ошибка записи.
             return true;
         }
 
+
+        $partSize = intval($this->request['blob-size'])
+            - $this->request['overlapBefore']
+            - $this->request['overlapAfter'];
+
+        // Рассчитываем размер полученных данных.
+        $file_info['CURRENT_FILE_SIZE'] = intval($file_info['CURRENT_FILE_SIZE'])
+            + $partSize;
+
         // размер записанной части файла.(вместе со служебными данными)
         $file_info["PART_SIZE"]["'" . $this->request['file-index-part'] . "'"] = $length;
+        $file_info["beginOffset"] = $beginOffset;
+        $file_info["endOffset"] = $endOffset;
 
         // Записываем заголовок во временный файл.
         if (!$this->SaveHeader($file_info))
@@ -314,45 +389,5 @@ class ImportCSV
         }
 
         return true;
-    }
-
-    /**
-     *
-     * @return bool 
-     * true - ok, 
-     * false - error,
-     * if there was an error - (isError() == true) 
-     * and $this->response['result'] == 'error'
-     * $this->response['message'] - message; 
-     *  
-     **/
-    public function RequestHandler(): bool
-    {
-        if (!$this->CheckSessid())
-            return $this->IsError();
-        elseif ($this->CheckIsInitialFormData())
-            return $this->IsError();
-        elseif ($this->CheckIsDataFile())
-            return $this->IsError();
-
-        // Проверяем, были ли сохранены поля БД и файла CSV
-        //     if (!$session->has('FIELDS_DB_CSV'))
-        //     {
-        //         echo json_encode(
-        //             [
-        //                 'result' => 'error',
-        //                 'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NO_FIELDS_ERROR')
-        //             ]
-        //         );
-        //         return false;
-        //     }
-
-        // $fields = $session['FIELDS_DB_CSV'];
-
-        // foreach ($fields as $db => $csv)
-        // {
-        // }
-
-        return false;
     }
 }
