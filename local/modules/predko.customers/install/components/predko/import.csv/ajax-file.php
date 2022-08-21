@@ -50,7 +50,7 @@ class ImportCSV
     {
         $this->tmpDataFileName = $temp_file;
 
-        $this->tmpHeaderFileName = $temp_file . "_hdr";
+        $this->tmpHeaderFileName = preg_replace("#(\.tmp)$#", "_hdr.tmp", $temp_file);
 
         $this->request = Application::getInstance()->getContext()->getRequest();
 
