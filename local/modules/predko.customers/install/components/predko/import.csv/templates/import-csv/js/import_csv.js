@@ -36,12 +36,13 @@ function ready() {
 function formSubmit(event) {
 	event.preventDefault();
 
-	let fileSize = document.getElementById('input-file-csv').files[0].size;
+	let file = document.getElementById('input-file-csv').files[0];
 
 	const formData = new FormData(form);
 
 	formData.append('type-form-data', 'initial');
-	formData.append('file-size', fileSize);
+	formData.append('file-size', file.size);
+	formData.append('file-name', file.name);
 
 	// Отправляем данные формы.
 	sendData(formData)

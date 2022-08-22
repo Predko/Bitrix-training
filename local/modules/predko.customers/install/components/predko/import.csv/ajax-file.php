@@ -19,20 +19,51 @@ Loc::loadMessages(__FILE__);
 // import.csv\templates\import-csv\js\import_csv.js
 const OVERLAP = 6; // Вырезаем фрагмент с таким отступом до начала фрагмента и после.
 
-$temp_data_file = $_SERVER['DOCUMENT_ROOT'] . "/upload/tmp/predko_customer_import_csv_formData.tmp";
+$tmp_data_file = $_SERVER['DOCUMENT_ROOT'] . "/upload/tmp/predko_customer_import_csv_filename.tmp";
+
+const PART_FILE_GETTING_ERROR = 1;
+const SESSID_ERROR = 2;
+const DATA_RECEIVED = 3;
 
 use Bitrix\Main\Application;
 
 global $APPLICATION;
 
-$importCSV = new ImportCSV($temp_data_file);
+
+$session = \Bitrix\Main\Application::getInstance()->getSession();
+
+//$session->remove('IMPORT_CSV_OBJECT'); return;
+
+if ($session->has("IMPORT_CSV_OBJECT"))
+{
+    $importCSV = unserialize($session["IMPORT_CSV_OBJECT"]);
+}
+else
+{
+    $importCSV = new ImportCSV($tmp_data_file);
+}
+
 
 // Обрабатываем AJAX запрос и импортируем файл данных.
-$importCSV->RequestHandler();
+$result = $importCSV->RequestHandler();
 
 // Отправляем ответ.
 echo $importCSV->GetResponse();
 
+$session = \Bitrix\Main\Application::getInstance()->getSession();
+
+if (
+    $result == PART_FILE_GETTING_ERROR
+    || $result == SESSID_ERROR
+    || $importCSV->GetResult() == "end"
+)
+{
+    $session->remove('IMPORT_CSV_OBJECT');
+}
+else
+{
+    $session["IMPORT_CSV_OBJECT"] = serialize($importCSV);
+}
 
 
 
@@ -41,20 +72,46 @@ echo $importCSV->GetResponse();
 class ImportCSV
 {
     private $hasError = false;
-    private $tmpDataFileName;
-    private $tmpHeaderFileName;
+    private $tmpDataFileName = "";
+    private $tmpHeaderFileName = "";
+    private $tmpFileName;
     private $request;
-    private $response;
+    private $response = "";
+    private $isDataFileReady = false;
+    private $fields = [];
+    private $fileInfo = [];
 
-    public function __construct(String $temp_file)
+    public function __construct(string $tmpFileName)
     {
-        $this->tmpDataFileName = $temp_file;
-
-        $this->tmpHeaderFileName = preg_replace("#(\.tmp)$#", "_hdr.tmp", $temp_file);
+        $this->tmpFileName = $tmpFileName;
 
         $this->request = Application::getInstance()->getContext()->getRequest();
+    }
 
-        $this->response = "";
+    public function __serialize()
+    {
+        return [
+            "hasError" => $this->hasError,
+            "tmpFileName" => $this->tmpFileName,
+            "tmpDataFileName" => $this->tmpDataFileName,
+            "tmpHeaderFileName" => $this->tmpHeaderFileName,
+            "isDataFileReady" => $this->isDataFileReady,
+            "fields" => $this->fields,
+            "fileInfo" => $this->fileInfo,
+        ];
+    }
+
+    public function __unserialize($saved_data)
+    {
+        $this->hasError = $saved_data["hasError"];
+        $this->tmpFileName = $saved_data["tmpFileName"];
+        $this->tmpDataFileName = $saved_data["tmpDataFileName"];
+        $this->tmpHeaderFileName = $saved_data["tmpHeaderFileName"];
+        $this->isDataFileReady = $saved_data["isDataFileReady"];
+        $this->fields = $saved_data["fields"];
+        $this->fileInfo = $saved_data["fileInfo"];
+
+        $this->request = Application::getInstance()->getContext()->getRequest();
     }
 
     /**
@@ -67,16 +124,25 @@ class ImportCSV
      * $this->response['message'] - message; 
      *  
      **/
-    public function RequestHandler(): bool
+    public function RequestHandler(): bool|int
     {
-        if (!$this->CheckSessid())
-            return $this->IsError();
-        elseif ($this->CheckIsInitialFormData())
-            return $this->IsError();
-        elseif ($this->CheckIsDataFile())
-            return $this->IsError();
+        $result = false;
 
-        return false;
+        if (!$this->CheckSessid())
+            $result =  $this->IsError();
+        elseif ($this->CheckIsInitialFormData())
+            $result =  $this->IsError();
+        elseif ($this->CheckIsDataFile())
+            $result =  $this->IsError();
+        else
+        {
+            $this->response = [
+                'result' => 'error', // not_processed
+                'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NOT_PROCESSED')
+            ];
+        }
+
+        return $result;
     }
 
     /**
@@ -84,7 +150,7 @@ class ImportCSV
      * @return bool;
      * 
      **/
-    public function IsError(): bool
+    public function IsError(): bool|int
     {
         return $this->hasError;
     }
@@ -93,6 +159,11 @@ class ImportCSV
     public function GetResponse()
     {
         return json_encode($this->response);
+    }
+
+    public function GetResult()
+    {
+        return $this->response["result"];
     }
 
     /**
@@ -110,16 +181,28 @@ class ImportCSV
             json_encode($header),
             true
         ))
-        {
-            $this->hasError = true;
-            $this->response = [
-                'result' => 'error',
-                'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_TMP_FILE_HEADER_SAVE_ERROR')
-            ];
             return false;
-        }
 
         return true;
+    }
+
+    private function SetFileNames(string $fileName)
+    {
+        $lowerFileName = str_replace(".csv", "", strtolower($fileName));
+
+        $this->tmpDataFileName = str_replace(
+            "filename",
+            $lowerFileName,
+            $this->tmpFileName
+        );
+
+        $this->tmpHeaderFileName = str_replace(
+            "filename",
+            $lowerFileName,
+            preg_replace("#(\.tmp)$#", "_hdr.tmp", $this->tmpFileName)
+        );
+
+        file_put_contents("d:/error.php", $this->tmpFileName . " " . $this->tmpDataFileName . " " . $this->tmpHeaderFileName, FILE_APPEND);
     }
 
     /**
@@ -154,7 +237,6 @@ class ImportCSV
 
         return $resultLength;
     }
-
 
     /**
      *
@@ -198,7 +280,7 @@ class ImportCSV
                 'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_SESS_ID_ERROR')
             ];
 
-            $this->hasError = true;
+            $this->hasError = SESSID_ERROR;
 
             return false;
         }
@@ -222,8 +304,7 @@ class ImportCSV
             return false;
 
         // Это исходные данные для импорта.
-
-        $this->isDataReady = false;
+        $this->isDataFileReady = false;
 
         $fields = [];
         foreach ($this->request['ENTITY_NAME_TABLE'] as $index => $field)
@@ -231,19 +312,21 @@ class ImportCSV
             $fields[$field] = $this->request['ENTITY_NAME_CSV'][$index];
         }
 
-        // обрезаем файл данных.
+        $this->SetFileNames($this->request['file-name']);
+
+        // Обрезаем временный файл данных.
         file_put_contents($this->tmpDataFileName, "");
 
-        // Записываем заголовок во временный файл.
-        if (!$this->SaveHeader([
+        $this->SaveHeader([$this->request['ENTITY_NAME'] => $fields]);
+
+        // Информация о файле и полях.
+        $this->fields = $fields;
+        $this->fileInfo = [
+            'FILE_NAME' => $this->request['file-name'],
             'FILE_SIZE' => $this->request['file-size'],
-            'FIELDS' => $fields,
             'CURRENT_FILE_SIZE' => 0,
             'PART_SIZE' => []
-        ]))
-        {   // Ошибка записи.
-            return true;
-        }
+        ];
 
         $this->hasError = false; // Ошибки не было.
 
@@ -307,18 +390,12 @@ class ImportCSV
         if ($this->request['type-form-data'] != 'get_file')
             return false;
 
-        if (!$file_info = $this->LoadHeader())
-        {   // Ошибка чтения.
-            return true;
-        }
-
         $data = $this->request['file-data'];
         $beginOffset = $this->request['overlapBefore'];
         $endOffset = $this->request['overlapAfter'];
         $search_arr = json_decode($this->request['search_arr'], true);
 
         $blob_size = $this->request['blob-size'];
-        $lengthData = strlen($data);
 
         $startIndex = $this->findIndex(substr($data, 0, count($search_arr) + $beginOffset + 5), $search_arr);
 
@@ -329,33 +406,38 @@ class ImportCSV
             $blob_size - $beginOffset - $endOffset
         ))
         {   // Ошибка записи.
+            // Файл получен  не полностью.
+            $this->isDataFileReady = false;
+
+            $this->hasError = PART_FILE_GETTING_ERROR;
+
+            $this->response = [
+                'result' => 'error',
+                'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_DATA_TRANSFERRED_SUCCESSFULLY')
+            ];
+
             return true;
         }
 
-
-        $partSize = intval($this->request['blob-size'])
+        $partSize = $this->request['blob-size']
             - $this->request['overlapBefore']
             - $this->request['overlapAfter'];
 
         // Рассчитываем размер полученных данных.
-        $file_info['CURRENT_FILE_SIZE'] = intval($file_info['CURRENT_FILE_SIZE'])
+        $this->fileInfo['CURRENT_FILE_SIZE'] = $this->fileInfo['CURRENT_FILE_SIZE']
             + $partSize;
 
         // размер записанной части файла.(вместе со служебными данными)
-        $file_info["PART_SIZE"]["'" . $this->request['file-index-part'] . "'"] = $length;
-        $file_info["beginOffset"] = $beginOffset;
-        $file_info["endOffset"] = $endOffset;
+        $this->fileInfo["PART_SIZE"]["'" . $this->request['file-index-part'] . "'"] = $length;
+        $this->fileInfo["BEGIN_OFFSET"] = $beginOffset;
+        $this->fileInfo["END_OFFSET"] = $endOffset;
 
-        // Записываем заголовок во временный файл.
-        if (!$this->SaveHeader($file_info))
-        {   // Ошибка записи.
-            return true;
-        }
-
-        if (intval($file_info['CURRENT_FILE_SIZE']) == intval($file_info['FILE_SIZE']))
+        if ($this->fileInfo['CURRENT_FILE_SIZE'] == $this->fileInfo['FILE_SIZE'])
         {
             // Файл получен полностью и готов к обработке.
-            $this->isDataReady = false;
+            $this->isDataFileReady = false;
+
+            $this->hasError = false;
 
             $this->response = [
                 'result' => 'end',
@@ -364,6 +446,8 @@ class ImportCSV
         }
         else
         {
+            $this->hasError = false;
+
             $this->response = [
                 'result' => 'ok',
                 'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_DATA_RECEIVED')
