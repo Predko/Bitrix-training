@@ -261,27 +261,28 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 
 	ReadFromFile(blob)
 		.then((result) => createFieldName(result, items))
+		.then((fieldsInfo) => createListfieldMatches(fieldsInfo))
 		.catch((error) => Message(error));
 
 	function createFieldName(str, items) {
 		// Выделяем первую строку
 		var strArr = str.split('\r', 1);
 		// Разбиваем на поля
-		var fieldNames = strArr[0].split(';');
+		var CsvFieldNames = strArr[0].split(';');
 		// Получаем список полей выбранной сущности.
 		var efn = document.getElementById('entity-name-fields-id').value;
 		var entityFieldNames = items[efn]['FIELD_NAMES'];
 
-		createListfieldMatches(entityFieldNames, fieldNames);
+		return {'entityFieldNames': entityFieldNames, 'CsvFieldNames': CsvFieldNames};
 	}
 
 	// Создаёт список соответствия полей базы данных и файла CSV
 	// формирует раззметку из <select> <==> <select>
-	function createListfieldMatches(entityFieldNames, fieldNames) {
+	function createListfieldMatches(fieldsInfo) {
 		// Число полей в списке.
-		var length = fieldNames.length;
-		if (entityFieldNames.length > length) {
-			length = entityFieldNames.length;
+		var length = fieldsInfo.CsvFieldNames.length;
+		if (fieldsInfo.entityFieldNames.length > length) {
+			length = fieldsInfo.entityFieldNames.length;
 		}
 
 		var ul = clearAndGetElement();
@@ -303,7 +304,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 				'<select name="ENTITY_NAME_TABLE[]' +
 				i +
 				'" required="required">';
-			entityFieldNames.forEach((element, indx) => {
+			fieldsInfo.entityFieldNames.forEach((element, indx) => {
 				if (typeof indx !== 'undefined' && i == indx) {
 					used = true;
 					selected = ' selected="selected"';
@@ -335,7 +336,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 
 			// Колонка из CSV файла.
 			used = false;
-			fieldNames.forEach((element, indx) => {
+			fieldsInfo.CsvFieldNames.forEach((element, indx) => {
 				if (typeof indx !== 'undefined' && i == indx) {
 					used = true;
 					selected = ' selected="selected"';
