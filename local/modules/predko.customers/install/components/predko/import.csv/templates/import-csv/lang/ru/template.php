@@ -12,6 +12,8 @@ $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_IMPORT'] = 'Начать импорт зап�
 $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_ENTITY_NAME'] = 'Таблица базы данных';
 $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_NOT_USED'] = 'Поле не используется';
 $MESS['PREDKO_CUSTOMERS_IMPORT_CSV_FIELD_NAMES_HEADER'] = 'Укажите соответствие полей для импорта';
+$MESS['PREDKO_CUSTOMERS_IMPORT_CSV_NAV_GET_FILE'] = 'Загрузить данные из файла CSV';
+$MESS['PREDKO_CUSTOMERS_IMPORT_CSV_NAV_PUT_INTO_DB'] = 'Внести данные файла в базу данных';
 
 
 ?>

@@ -52,6 +52,73 @@ function formSubmit(event) {
 		.catch((error) => Message(error));
 }
 
+// Реализует переключение вкладок.
+function showThisTab(event, classNameTab) {
+	var tabs = document.getElementsByClassName('i-csv-tab-content');
+
+	// Убираем старую вкладку и высвечиваем новую.
+	for (let tab of tabs) {
+		if (tab.id == classNameTab) {
+			tab.style.display = 'block';
+		} else {
+			tab.style.display = 'none';
+		}
+	}
+
+	// Меняем активную кнопку.
+	for (let btn of document.getElementsByClassName('i-csv-tab-link')) {
+		btn.classList.remove('active');
+	}
+
+	event.target.classList.add('active');
+}
+
+/**
+ * Прогресс бар
+ */
+
+let ProgressInfo = {
+	showProgressBar: showProgressBar,
+
+	hideProgressBar: hideProgressBar,
+
+	minProgressValue: 0,
+
+	maxProgressValue: 100,
+
+	currentStartFragment: 0,
+
+	message: '',
+
+	isStart: false,
+};
+
+function showProgressBar(currentProgressValue) {
+	if (!this.isStart) {
+		i_csv_progress.hidden = false;
+		i_csv_progress_info.textContent = this.message;
+		i_csv_progress.min = 0;
+		i_csv_progress.max = 100;
+		this.isStart = true;
+	}
+
+	i_csv_progress.value = Math.round(
+		((this.currentStartFragment + currentProgressValue) * 100.0) /
+			this.maxProgressValue
+	);
+
+	if (currentProgressValue == this.maxProgressValue) {
+		i_csv_progress_info.textContent = 'Sending comleted';
+		//i_csv_progress.hidden = true;
+		this.isStart = false;
+	}
+}
+
+function hideProgressBar() {
+	i_csv_progress.hidden = true;
+	i_csv_progress_info.textContent = '';
+}
+
 /**********************************************************************
  * Отправляет данные из formData:FormData в formData.action.
  * Возвращает Promise объект.
@@ -62,29 +129,32 @@ function formSubmit(event) {
 function sendData(formData) {
 	return new Promise((resolve, reject) => {
 		//ajax
-		let HttpRequest = new XMLHttpRequest(); //Создадим объект для отправки AJAX запроса
+		let HttpRequest = new XMLHttpRequest();
 		HttpRequest.onload = function (e) {
+			//Проверка что результат отчета успешный (может быть 404 или другие)
 			if (this.status == 200) {
-				//Проверка что результат отчета успешный (может быть 404 или другие)
+				// Устанавливаем прогрессбар на 100%.
+				ProgressInfo.showProgressBar(ProgressInfo.maxProgressValue);
+
 				return resolve(HttpRequest.response); // Успешно.
 			} else {
 				return reject(new Error(HttpRequest.statusText)); // Ошибка.
 			}
-		}; //Функция в которую возвращается ответ от сеовера
+		};
+
+		HttpRequest.onprogress = function (event) {
+			ProgressInfo.showProgressBar(event.loaded);
+		};
 
 		HttpRequest.open('POST', form.action, true);
 		HttpRequest.send(formData); //Отправка запроса на сервер
 	});
 }
 
-
 // Вывод информационных сообщений.
 function Message(text) {
-
 	alert(text);
-	
 }
-
 
 /**********************************************************************
  * Передаёт на сервер указанный фрагмент файла.
@@ -190,6 +260,12 @@ async function SendFile(response) {
 	var overlapBefore = 0;
 	var overlapAfter = OVERLAP;
 
+	ProgressInfo.minProgressValue = 0;
+	ProgressInfo.maxProgressValue = file.size;
+	ProgressInfo.message = 'Sending file ' + file.name;
+
+	ProgressInfo.showProgressBar(0);
+
 	// Разбиваем данные на фрагменты размером max_size
 	do {
 		// Определяем размер части файла для вырезания.
@@ -220,6 +296,9 @@ async function SendFile(response) {
 		// {[overlapBefore] [[массив-образец] остальная часть фрагмента] [overlapAfter]}
 		let searchArr = new Uint8Array(await getSearchArr(blob, overlapBefore));
 
+		// Начало текущего фрагмента в файле для прогрессбара.
+		ProgressInfo.currentStartFragment = currentBlob.begin;
+
 		// Передаём данные.
 		var res = await SendPartFile(
 			resultStr,
@@ -230,8 +309,7 @@ async function SendFile(response) {
 			searchArr
 		);
 
-		if (res.result == 'end') 
-			Message('Данные переданы успешно');
+		if (res.result == 'end') Message('Данные переданы успешно');
 
 		currentBlob.index++;
 
@@ -249,6 +327,9 @@ async function SendFile(response) {
  *   Добавляет набор в форму.
  */
 function _getFieldNamesFromFile(input, items, not_used_message) {
+	
+	ProgressInfo.hideProgressBar();
+
 	let file = input.files[0];
 
 	if (file.type != 'text/csv') {
@@ -273,16 +354,26 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 		var efn = document.getElementById('entity-name-fields-id').value;
 		var entityFieldNames = items[efn]['FIELD_NAMES'];
 
-		return {'entityFieldNames': entityFieldNames, 'CsvFieldNames': CsvFieldNames};
+		return {
+			entityFieldNames: entityFieldNames,
+			CsvFieldNames: CsvFieldNames,
+		};
 	}
 
 	// Создаёт список соответствия полей базы данных и файла CSV
 	// формирует раззметку из <select> <==> <select>
 	function createListfieldMatches(fieldsInfo) {
+		// Минимальное количество полей из двух списков.
+		let minFieldsCount = 0;
+
 		// Число полей в списке.
 		var length = fieldsInfo.CsvFieldNames.length;
-		if (fieldsInfo.entityFieldNames.length > length) {
-			length = fieldsInfo.entityFieldNames.length;
+		var lengthEntity = fieldsInfo.entityFieldNames.length;
+		if (lengthEntity > length) {
+			minFieldsCount = length;
+			length = lengthEntity;
+		} else {
+			minFieldsCount = lengthEntity;
 		}
 
 		var ul = clearAndGetElement();
@@ -305,7 +396,11 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 				i +
 				'" required="required">';
 			fieldsInfo.entityFieldNames.forEach((element, indx) => {
-				if (typeof indx !== 'undefined' && i == indx) {
+				if (
+					typeof indx !== 'undefined' &&
+					i == indx &&
+					i < minFieldsCount
+				) {
 					used = true;
 					selected = ' selected="selected"';
 				} else selected = '';
@@ -337,7 +432,11 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 			// Колонка из CSV файла.
 			used = false;
 			fieldsInfo.CsvFieldNames.forEach((element, indx) => {
-				if (typeof indx !== 'undefined' && i == indx) {
+				if (
+					typeof indx !== 'undefined' &&
+					i == indx &&
+					i < minFieldsCount
+				) {
 					used = true;
 					selected = ' selected="selected"';
 				} else selected = '';
@@ -379,6 +478,8 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
  *   Возвращает элемент с id = 'place_to_select_field_names'.
  */
 function clearAndGetElement() {
+	ProgressInfo.hideProgressBar();
+
 	// Скрываем заголовок.
 	document.getElementById('field_names_header').style.display = 'none';
 
