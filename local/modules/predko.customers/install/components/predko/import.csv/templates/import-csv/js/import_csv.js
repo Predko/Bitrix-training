@@ -77,49 +77,70 @@ function showThisTab(event, classNameTab) {
  * Прогресс бар
  */
 
-let ProgressInfo = {
-	showProgressBar: showProgressBar,
+class ProgressBar {
+	progressElement = null;
+	max = 100;
+	message = '';
+	startValue = 0;
+	isStart = false;
 
-	hideProgressBar: hideProgressBar,
-
-	maxProgressValue: 100,
-
-	currentStartFragment: 0,
-
-	message: '',
-
-	isStart: false,
-};
-
-function showProgressBar(currentProgressValue) {
-	if (!this.isStart) {
-		i_csv_progress.hidden = false;
-		i_csv_progress_info.textContent = this.message;
-		i_csv_progress.max = this.maxProgressValue;
-		this.isStart = true;
-	}
-
-	i_csv_progress_info.textContent =
-		this.message +
-		' ' +
-		Math.round(
-			((this.currentStartFragment + currentProgressValue) * 100.0) /
-				this.maxProgressValue
-		) +
-		'%';
-
-	i_csv_progress.value = this.currentStartFragment + currentProgressValue;
-
-	if (currentProgressValue == this.maxProgressValue) {
-		i_csv_progress_info.textContent = 'Sending comleted';
+	constructor(progressElement, max, message) {
+		this.progressElement = progressElement;
+		this.max = max;
+		this.message = message;
+		this.startValue = 0;
 		this.isStart = false;
 	}
+
+	/**
+	 * @param {number} v
+	 */
+	set startValue(value) { this.startValue = value; }
+
+	showProgressBar(currentProgressValue) {
+		if (!this.isStart) {
+			startProgressBar(currentProgressValue);
+		}
+
+		setProgressContent(currentProgressValue);
+
+		if (currentProgressValue == this.max) {
+			this.progressElement_info.textContent = 'Sending comleted';
+			this.isStart = false;
+		}
+	}
+
+	startProgressBar(startValue) {
+		this.progressElement.hidden = false;
+		this.progressElement_info.textContent = this.message;
+		this.progressElement.#max = this.max;
+		this.isStart = true;
+
+		setProgressContent(startValue);
+	}
+
+	setProgressContent(currentProgressValue) {
+		this.progressElement_info.textContent =
+			this.message +
+			' ' +
+			Math.round(
+				((this.startValue + currentProgressValue) * 100.0) / this.max
+			) +
+			'%';
+
+		this.progressElement.value = this.startValue + currentProgressValue;
+	}
+
+	hideProgressBar() {
+		this.progressElement.hidden = true;
+		this.progressElement_info.textContent = '';
+		this.isStart = false;
+	}
+
+	setMax() { this.progressElement.value = this.max; }
 }
 
-function hideProgressBar() {
-	i_csv_progress.hidden = true;
-	i_csv_progress_info.textContent = '';
-}
+let ProgressInfo = null;
 
 /**********************************************************************
  * Отправляет данные из formData:FormData в formData.action.
@@ -136,7 +157,7 @@ function sendData(formData) {
 			//Проверка что результат отчета успешный (может быть 404 или другие)
 			if (this.status == 200) {
 				// Устанавливаем прогрессбар на 100%.
-				ProgressInfo.showProgressBar(ProgressInfo.maxProgressValue);
+				ProgressInfo?.setMax();
 
 				return resolve(HttpRequest.response); // Успешно.
 			} else {
@@ -145,7 +166,7 @@ function sendData(formData) {
 		};
 
 		HttpRequest.onprogress = function (event) {
-			ProgressInfo.showProgressBar(event.loaded);
+			ProgressInfo?.showProgressBar(event.loaded);
 		};
 
 		HttpRequest.open('POST', form.action, true);
@@ -187,7 +208,7 @@ async function SendPartFile(
 	formData.append('search_arr', JSON.stringify(searchArr));
 
 	// Отправляем данные формы.
-	return sendData(formData)
+	return await sendData(formData)
 		.then((response) => JSON.parse(response))
 		.catch((error) => Message(error));
 }
@@ -262,8 +283,7 @@ async function SendFile(response) {
 	var overlapBefore = 0;
 	var overlapAfter = OVERLAP;
 
-	ProgressInfo.maxProgressValue = file.size;
-	ProgressInfo.message = 'Sending file ' + file.name;
+	ProgressInfo = new ProgressBar(file.size, 'Sending file ' + file.name);
 
 	ProgressInfo.showProgressBar(0);
 
@@ -298,7 +318,7 @@ async function SendFile(response) {
 		let searchArr = new Uint8Array(await getSearchArr(blob, overlapBefore));
 
 		// Начало текущего фрагмента в файле для прогресс бара.
-		ProgressInfo.currentStartFragment = currentBlob.begin;
+		ProgressInfo.startValue = currentBlob.begin;
 
 		// Передаём данные.
 		var res = await SendPartFile(
@@ -328,7 +348,7 @@ async function SendFile(response) {
  *   Добавляет набор в форму.
  */
 function _getFieldNamesFromFile(input, items, not_used_message) {
-	ProgressInfo.hideProgressBar();
+	ProgressInfo?.hideProgressBar();
 
 	let file = input.files[0];
 
@@ -478,7 +498,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
  *   Возвращает элемент с id = 'place_to_select_field_names'.
  */
 function clearAndGetElement() {
-	ProgressInfo.hideProgressBar();
+	ProgressInfo?.hideProgressBar();
 
 	// Скрываем заголовок.
 	document.getElementById('field_names_header').style.display = 'none';
