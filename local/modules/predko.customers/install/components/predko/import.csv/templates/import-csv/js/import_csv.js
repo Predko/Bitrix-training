@@ -82,8 +82,6 @@ let ProgressInfo = {
 
 	hideProgressBar: hideProgressBar,
 
-	minProgressValue: 0,
-
 	maxProgressValue: 100,
 
 	currentStartFragment: 0,
@@ -97,19 +95,23 @@ function showProgressBar(currentProgressValue) {
 	if (!this.isStart) {
 		i_csv_progress.hidden = false;
 		i_csv_progress_info.textContent = this.message;
-		i_csv_progress.min = 0;
-		i_csv_progress.max = 100;
+		i_csv_progress.max = this.maxProgressValue;
 		this.isStart = true;
 	}
 
-	i_csv_progress.value = Math.round(
-		((this.currentStartFragment + currentProgressValue) * 100.0) /
-			this.maxProgressValue
-	);
+	i_csv_progress_info.textContent =
+		this.message +
+		' ' +
+		Math.round(
+			((this.currentStartFragment + currentProgressValue) * 100.0) /
+				this.maxProgressValue
+		) +
+		'%';
+
+	i_csv_progress.value = this.currentStartFragment + currentProgressValue;
 
 	if (currentProgressValue == this.maxProgressValue) {
 		i_csv_progress_info.textContent = 'Sending comleted';
-		//i_csv_progress.hidden = true;
 		this.isStart = false;
 	}
 }
@@ -225,7 +227,7 @@ async function getSearchArr(blob, overlapBefore) {
  *
  *   1. Отправляются данные формы о полях.
  *
- *   Разбивает файл на фрагменты размером max_size и отправляет их на сервер.
+ *   Разбивает файл на фрагменты размером maxFragmentSize и отправляет их на сервер.
  * 	 Схема фрагмента:
  *   {[overlapBefore] [[массив-образец 1] остальная часть фрагмента] [overlapAfter]}
  *
@@ -248,7 +250,7 @@ async function SendFile(response) {
 		return;
 	}
 
-	var max_size = 524288; // 512 kb
+	var maxFragmentSize = 524288; // 512 kb
 
 	let currentBlob = {
 		size: 0,
@@ -260,21 +262,20 @@ async function SendFile(response) {
 	var overlapBefore = 0;
 	var overlapAfter = OVERLAP;
 
-	ProgressInfo.minProgressValue = 0;
 	ProgressInfo.maxProgressValue = file.size;
 	ProgressInfo.message = 'Sending file ' + file.name;
 
 	ProgressInfo.showProgressBar(0);
 
-	// Разбиваем данные на фрагменты размером max_size
+	// Разбиваем данные на фрагменты размером maxFragmentSize
 	do {
 		// Определяем размер части файла для вырезания.
-		if (currentBlob.rest_blob <= max_size - overlapBefore) {
+		if (currentBlob.rest_blob <= maxFragmentSize - overlapBefore) {
 			// Остаток файла не требует перекрытия в конце.
 			currentBlob.size = currentBlob.rest_blob + overlapBefore;
 			overlapAfter = 0;
 		} else {
-			currentBlob.size = max_size;
+			currentBlob.size = maxFragmentSize;
 		}
 
 		// Вырезаем фрагмент для отправки.
@@ -296,7 +297,7 @@ async function SendFile(response) {
 		// {[overlapBefore] [[массив-образец] остальная часть фрагмента] [overlapAfter]}
 		let searchArr = new Uint8Array(await getSearchArr(blob, overlapBefore));
 
-		// Начало текущего фрагмента в файле для прогрессбара.
+		// Начало текущего фрагмента в файле для прогресс бара.
 		ProgressInfo.currentStartFragment = currentBlob.begin;
 
 		// Передаём данные.
@@ -327,7 +328,6 @@ async function SendFile(response) {
  *   Добавляет набор в форму.
  */
 function _getFieldNamesFromFile(input, items, not_used_message) {
-	
 	ProgressInfo.hideProgressBar();
 
 	let file = input.files[0];
