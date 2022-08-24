@@ -9,6 +9,6 @@
 
 const DEFAULT_ENTITY_NAME = "Customer";
 
-
+const TMP_FILE_TEMPLATE = "/upload/tmp/predko_customer_import_csv_filename.tmp";
 
 ?>

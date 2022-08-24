@@ -10,6 +10,7 @@
 
 //Подключаем ядро 1С Битрикс
 require($_SERVER["DOCUMENT_ROOT"] . '/bitrix/modules/main/include/prolog_before.php');
+include_once(__DIR__."/constants.php");
 
 use \Bitrix\Main\Localization\Loc;
 
@@ -19,7 +20,7 @@ Loc::loadMessages(__FILE__);
 // import.csv\templates\import-csv\js\import_csv.js
 const OVERLAP = 6; // Вырезаем фрагмент с таким отступом до начала фрагмента и после.
 
-$tmp_data_file = $_SERVER['DOCUMENT_ROOT'] . "/upload/tmp/predko_customer_import_csv_filename.tmp";
+$tmp_data_file = $_SERVER['DOCUMENT_ROOT'] . TMP_FILE_TEMPLATE;
 
 const PART_FILE_GETTING_ERROR = 1;
 const SESSID_ERROR = 2;
@@ -306,21 +307,17 @@ class ImportCSV
         // Это исходные данные для импорта.
         $this->isDataFileReady = false;
 
-        $fields = [];
         foreach ($this->request['ENTITY_NAME_TABLE'] as $index => $field)
         {
-            $fields[$field] = $this->request['ENTITY_NAME_CSV'][$index];
+            $this->fields[$field] = $this->request['ENTITY_NAME_CSV'][$index];
         }
 
-        $this->SetFileNames($this->request['file-name']);
+        $this->SetFileNames($this->request['ENTITY_NAME']);
 
         // Обрезаем временный файл данных.
         file_put_contents($this->tmpDataFileName, "");
 
-        $this->SaveHeader([$this->request['ENTITY_NAME'] => $fields]);
-
         // Информация о файле и полях.
-        $this->fields = $fields;
         $this->fileInfo = [
             'FILE_NAME' => $this->request['file-name'],
             'FILE_SIZE' => $this->request['file-size'],
@@ -328,11 +325,26 @@ class ImportCSV
             'PART_SIZE' => []
         ];
 
+        $this->SaveHeader([
+            $this->request['ENTITY_NAME'] =>
+            [
+                'FIELDS' => $this->fields,
+                'RECEIVED' => false
+            ]
+        ]);
+
         $this->hasError = false; // Ошибки не было.
 
         $this->response = [
             'result' => 'ok',
-            'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_DATA_RECEIVED')
+            'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_DATA_RECEIVED'),
+            'entityName' => $this->request['ENTITY_NAME'],
+            'importCSV' => [
+                $this->request['ENTITY_NAME'] => [
+                    'fields' => $this->fields,
+                    'received' => false
+                ]
+            ]
         ];
 
         return true; // обработано.
@@ -439,9 +451,17 @@ class ImportCSV
 
             $this->hasError = false;
 
+            $this->SaveHeader([
+                $this->request['ENTITY_NAME'] =>
+                [
+                    'FIELDS' => $this->fields,
+                    'RECEIVED' => true  // файл получен.
+                ]
+            ]);
+
             $this->response = [
                 'result' => 'end',
-                'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_DATA_TRANSFERRED_SUCCESSFULLY')
+                'message' => Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_DATA_TRANSFERRED_SUCCESSFULLY'),
             ];
         }
         else

@@ -53,12 +53,12 @@ function formSubmit(event) {
 }
 
 // Реализует переключение вкладок.
-function showThisTab(event, classNameTab) {
+function showThisTab(element, idTab) {
 	var tabs = document.getElementsByClassName('i-csv-tab-content');
 
 	// Убираем старую вкладку и высвечиваем новую.
 	for (let tab of tabs) {
-		if (tab.id == classNameTab) {
+		if (tab.id == idTab) {
 			tab.style.display = 'block';
 		} else {
 			tab.style.display = 'none';
@@ -70,7 +70,57 @@ function showThisTab(event, classNameTab) {
 		btn.classList.remove('active');
 	}
 
-	event.target.classList.add('active');
+	element.classList.add('active');
+}
+
+// Реализует переключение вкладок.
+function enableTab(event, idTab) {
+	showThisTab(event.target, idTab);
+}
+
+/**
+ * Создаёт вкалдку указанной сущности
+ * и делает её активной.
+ * @param entityName {string} имя сущности.
+ */
+function createEntityTab(entityName, fields) {
+	let putDataToDbdiv = document.getElementById('put-data-csv-to-db');
+	let putDataToDbEntitydiv = putDataToDbdiv.cloneNode(true);
+
+	putDataToDbEntitydiv.setAttribute(
+		'id',
+		putDataToDbEntitydiv.id + '-' + entityName
+	);
+
+	// Меняем id всех дочерних элементов и меняем содержимое.
+	for (let node of putDataToDbEntitydiv.childNodes(true)) {
+		if (node.id == 'field_names_mapping') {
+			node.innerHTML += entityName;
+		} else if (node.id == 'i_csv_fields_mapping') {
+			// Очищаем элемент.
+			node.innerHTML = '';
+
+			for (const [field_entity, field_csv] of fields) {
+				let li = document.createElement('li');
+				li.innerHTML = field_entity + '  <==>  ' + field_csv;
+
+				node.append(li);
+			}
+		}
+
+		if (node.hasAttribute('id')) {
+			node.setAttribute(node.id + '-' + entityName);
+		}
+	}
+
+	putDataToDbdiv.parentNode.appendChild(putDataToDbEntitydiv);
+
+	let btnTab = document.getElementById(entityName);
+
+	// Скрываем предыдущую и показываем эту вкладку.
+	showThisTab(btnTab, putDataToDbEntitydiv.id);
+
+	// i_csv_fields_mapping
 }
 
 /**
@@ -242,6 +292,11 @@ async function SendFile(response) {
 		return;
 	}
 
+	if (response.result == 'ok') {
+		// Сохраняем в localStorage информацию о соответствии полей данных.
+		localStorage.setItem('importCSV', JSON.stringify(response.importCSV));
+	}
+
 	let file = document.getElementById('input-file-csv').files[0];
 
 	if (file == null || file.type != 'text/csv') {
@@ -310,7 +365,23 @@ async function SendFile(response) {
 			searchArr
 		);
 
-		if (res.result == 'end') Message('Данные переданы успешно');
+		if (res.result == 'end') {
+			Message('Данные переданы успешно');
+
+			// Сохраняем в localStorage информацию о успешно переданном файле.
+			let importCSV = JSON.parse(localStorage.getItem('importCSV'));
+
+			importCSV[response.entityName].received = true;
+
+			localStorage.setItem('importCSV', JSON.stringify(importCSV));
+
+			createEntityTab(
+				response.entityName,
+				importCSV[response.entityName].fields
+			);
+
+			break;
+		}
 
 		currentBlob.index++;
 
