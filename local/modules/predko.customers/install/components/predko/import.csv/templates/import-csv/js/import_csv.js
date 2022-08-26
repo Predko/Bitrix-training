@@ -31,7 +31,7 @@ function ready() {
 /**********************************************************************
  * Отправляет POST запрос с данными формы на сервер
  *
- * @param event {FormDataEvent}
+ * @param {FormDataEvent} event
  */
 function formSubmit(event) {
 	event.preventDefault();
@@ -53,7 +53,7 @@ function formSubmit(event) {
 }
 
 // Реализует переключение вкладок.
-function showThisTab(element, idTab) {
+function showThisTab(event, idTab) {
 	var tabs = document.getElementsByClassName('i-csv-tab-content');
 
 	// Убираем старую вкладку и высвечиваем новую.
@@ -70,57 +70,119 @@ function showThisTab(element, idTab) {
 		btn.classList.remove('active');
 	}
 
-	element.classList.add('active');
+	// Делаем кнопку активной.
+	event.target.classList.add('active');
 }
 
 // Реализует переключение вкладок.
 function enableTab(event, idTab) {
-	showThisTab(event.target, idTab);
+	createEntityTab(event.target.id);
+	showThisTab(event, idTab);
 }
 
-/**
- * Создаёт вкалдку указанной сущности
- * и делает её активной.
- * @param entityName {string} имя сущности.
- */
-function createEntityTab(entityName, fields) {
-	let putDataToDbdiv = document.getElementById('put-data-csv-to-db');
-	let putDataToDbEntitydiv = putDataToDbdiv.cloneNode(true);
+const ELEMENT_NODE = 1; // nodeType для элемента.
 
-	putDataToDbEntitydiv.setAttribute(
-		'id',
-		putDataToDbEntitydiv.id + '-' + entityName
+/**
+ * Вызывает функцию для данного элемента
+ * и, рекурсивно для всех дочерних элементов.
+ * @param {HTMLElement} current елемент.
+ * @param {CallableFunction} change функция.
+ */
+function changeElementId(current, change) {
+	change(current);
+
+	for (let node of current.childNodes) {
+		if (node.nodeType != ELEMENT_NODE) continue;
+		arguments.callee(node, change);
+	}
+}
+/**
+ * Создаёт вкладку указанной сущности
+ * и делает её активной.
+ * @param {String} entityName имя сущности.
+ * @param {false|Array} fields массив сопоставления полей.
+ */
+function createEntityTab(entityName, fields = false) {
+	let putDataToDbEntitydiv = document.getElementById(
+		'put-data-csv-to-db-' + entityName
 	);
 
-	// Меняем id всех дочерних элементов и меняем содержимое.
-	for (let node of putDataToDbEntitydiv.childNodes(true)) {
-		if (node.id == 'field_names_mapping') {
-			node.innerHTML += entityName;
-		} else if (node.id == 'i_csv_fields_mapping') {
-			// Очищаем элемент.
-			node.innerHTML = '';
+	// Если такой элемент есть - выходим.
+	if (putDataToDbEntitydiv) return true;
 
-			for (const [field_entity, field_csv] of fields) {
-				let li = document.createElement('li');
-				li.innerHTML = field_entity + '  <==>  ' + field_csv;
+	if (!fields) {
+		let importCSV = JSON.parse(localStorage.getItem('importCSV'));
+		localStorage.removeItem('importCsv');
 
-				node.append(li);
-			}
-		}
+		if (
+			!importCSV ||
+			!(entityName in importCSV) ||
+			importCSV[entityName].received == false
+		) {
+			let res = getDataFromServer('{ type: get, get: fields }' + entityName);
+			if (res == null || res == '') return false;
 
-		if (node.hasAttribute('id')) {
-			node.setAttribute(node.id + '-' + entityName);
-		}
+			entityFields = JSON.parse(res);
+		} else entityFields = importCSV[entityName].fields;
+	} else {
+		entityFields = fields;
 	}
+
+	let putDataToDbdiv = document.getElementById('put-data-csv-to-db');
+	putDataToDbEntitydiv = putDataToDbdiv.cloneNode(true);
+
+	// Меняем id элемента и всех дочерних элементов.
+	changeElementId(putDataToDbEntitydiv, (element) => {
+		let id = element.getAttribute('id');
+		if (id != null && id != '') {
+			element.setAttribute('id', id + '-' + entityName);
+		}
+	});
 
 	putDataToDbdiv.parentNode.appendChild(putDataToDbEntitydiv);
 
-	let btnTab = document.getElementById(entityName);
+	// Приводим в соответствие содержимое блока.
+	document.getElementById('field_names_mapping-' + entityName).innerHTML +=
+		' ' + entityName;
+	let ul = document.getElementById('i_csv_fields_mapping-' + entityName);
+	ul.innerHTML = '';
+
+	for (let key in entityFields) {
+		if (key == 'not used') continue;
+
+		let li = document.createElement('li');
+		li.innerHTML = key + '  <==>  ' + entityFields[key];
+
+		ul.append(li);
+	}
+
+	let btnTab = createAndAppendButton(entityName, 'i-csv-tabs-nav');
+
+	if (btnTab == null) return false;
 
 	// Скрываем предыдущую и показываем эту вкладку.
 	showThisTab(btnTab, putDataToDbEntitydiv.id);
 
-	// i_csv_fields_mapping
+	return true;
+}
+
+/**
+ *
+ * @param {Number} id кнопки.
+ * @param {Number} parentId id элемента, к которому надо присоединить кнопку.
+ * @returns {HTMLElement} созданная или найденная кнопка.
+ */
+function createAndAppendButton(id, parentId) {
+	let btn = document.getElementById(id);
+	if (btn) return btn;
+
+	btn = document.createElement('button');
+	btn.setAttribute('id', id);
+	btn.setAttribute('class', 'i-csv-tab-link');
+	btn.onclick = enableTab(event, 'put-data-csv-to-db-' + id);
+	btn.innerText = id;
+
+	document.getElementById(parentId).appendChild(btn);
 }
 
 /**
@@ -175,7 +237,7 @@ function hideProgressBar() {
  * Отправляет данные из formData:FormData в formData.action.
  * Возвращает Promise объект.
  *
- * @param formData {FormData} данные формы
+ * @param {FormData} formData данные формы
  *
  */
 function sendData(formData) {
@@ -210,12 +272,12 @@ function Message(text) {
 
 /**********************************************************************
  * Передаёт на сервер указанный фрагмент файла.
- * @param str передаваемые данные.
- * @param index {number} номер фрагмента.
- * @param size {number} размер фрагмента в байтах.
- * @param overlapBefore {number} перекрытие до основных данных.
- * @param overlapAfter {number} перекрытие после основных данных.
- * @param searchArr {array} массив-образец для поиска начала основных данных.
+ * @param {String} str передаваемые данные.
+ * @param {Number} index номер фрагмента.
+ * @param {Number} size размер фрагмента в байтах.
+ * @param {Number} overlapBefore перекрытие до основных данных.
+ * @param {Number} overlapAfter перекрытие после основных данных.
+ * @param {Array} searchArr массив-образец для поиска начала основных данных.
  */
 async function SendPartFile(
 	str,
@@ -242,11 +304,27 @@ async function SendPartFile(
 		.catch((error) => Message(error));
 }
 
+/**
+ *
+ * @param {String} typeRequest тип запроса
+ * @returns {String} строка ответа.
+ */
+async function getDataFromServer(typeRequest) {
+	const formData = new FormData(form);
+
+	formData.append('type-form-data', typeRequest);
+
+	// Отправляем данные формы.
+	return await sendData(formData)
+		.then((response) => response)
+		.catch((error) => Message(error));
+}
+
 /**********************************************************************
  * Читает текст из blob
  * Возвращает Promise объект.
  *
- * @param blob {Blob} фрагмент файла
+ * @param {Blob} blob фрагмент файла
  */
 function ReadFromFile(blob) {
 	return new Promise((resolve, reject) => {
@@ -289,10 +367,14 @@ async function getSearchArr(blob, overlapBefore) {
 async function SendFile(response) {
 	if (response.result == 'error') {
 		Message(response.message);
+		// Ошибка инициализации.
+		// Удаляем из  localStorage информацию о соответствии полей данных.
+		localStorage.removeItem('importCSV');
 		return;
 	}
 
 	if (response.result == 'ok') {
+		// Инициализация прошла успешно.
 		// Сохраняем в localStorage информацию о соответствии полей данных.
 		localStorage.setItem('importCSV', JSON.stringify(response.importCSV));
 	}
@@ -375,6 +457,7 @@ async function SendFile(response) {
 
 			localStorage.setItem('importCSV', JSON.stringify(importCSV));
 
+			// Создаём вкладку для данной сущности для переноса данных в БД.
 			createEntityTab(
 				response.entityName,
 				importCSV[response.entityName].fields
@@ -413,7 +496,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 
 	ReadFromFile(blob)
 		.then((result) => createFieldName(result, items))
-		.then((fieldsInfo) => createListfieldMatches(fieldsInfo))
+		.then((fieldsInfo) => createListfieldMapping(fieldsInfo))
 		.catch((error) => Message(error));
 
 	function createFieldName(str, items) {
@@ -433,7 +516,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
 
 	// Создаёт список соответствия полей базы данных и файла CSV
 	// формирует раззметку из <select> <==> <select>
-	function createListfieldMatches(fieldsInfo) {
+	function createListfieldMapping(fieldsInfo) {
 		// Минимальное количество полей из двух списков.
 		let minFieldsCount = 0;
 

@@ -1,12 +1,12 @@
  /* Style the tab */
- .i-csv-tabs-nav {
+ div#i-csv-tabs-nav {
     overflow: hidden;
     border: 1px solid #ccc;
     background-color: #f1f1f1;
 }
 
 /* Style the buttons that are used to open the tab content */
-.i-csv-tabs-nav button {
+div#i-csv-tabs-nav button {
     background-color: inherit;
     float: left;
     border: none;
@@ -17,12 +17,12 @@
 }
 
 /* Change background color of buttons on hover */
-.i-csv-tabs-nav button:hover {
+div#i-csv-tabs-nav button:hover {
     background-color: #ddd;
 }
 
 /* Create an active/current tablink class */
-.i-csv-tabs-nav button.active {
+div#i-csv-tabs-nav button.active {
     background-color: #ccc;
 }
 

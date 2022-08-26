@@ -12,12 +12,12 @@ Loc::loadMessages(__FILE__);
 
 <div class="import-csv-tabs">
 	<!-- Меню вкладок -->
-	<div class="i-csv-tabs-nav">
-		<button class="i-csv-tab-link active" onclick="enableTab(event,'get-file-and-fields')">
+	<div id="i-csv-tabs-nav">
+		<button class="i-csv-tab-link active" onclick="showThisTab(event, 'get-file-and-fields')">
 			<?= Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NAV_GET_FILE') ?>
 		</button>
 		<? foreach ($arResult["ENTITIES_FIELDS"] as $entityName => $fieldMapping) : ?>
-			<button class="i-csv-tab-link" id="<?= $entityName ?>" onclick="enableTab(event,'put-data-csv-to-db')">
+			<button class="i-csv-tab-link" id="<?= $entityName ?>" onclick="enableTab(event, 'put-data-csv-to-db-<?= $entityName ?>')">
 				<?= $entityName ?>
 			</button>
 		<? endforeach ?>

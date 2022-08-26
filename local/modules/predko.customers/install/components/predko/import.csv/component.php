@@ -72,6 +72,10 @@ if ($arParams["LIST_COUNT"] <= 0)
 // и заполняем данными о соответствии полей, для каждой сущности.
 
 $arEntitiesFields = false;
+$fields = [];
+foreach ($arTypesEntity as $key => $value) {
+	$fields[$key] = $value;
+}
 
 foreach ($arTypesEntity as $nameEntity => $desc)
 {
