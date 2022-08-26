@@ -39,6 +39,7 @@ function formSubmit(event) {
 	let file = document.getElementById('input-file-csv').files[0];
 
 	const formData = new FormData(form);
+	formData.delete('FILE_CSV');
 
 	formData.append('type-form-data', 'initial');
 	formData.append('file-size', file.size);
@@ -73,53 +74,7 @@ function showThisTab(event, classNameTab) {
 	event.target.classList.add('active');
 }
 
-/**
- * Прогресс бар
- */
-
-let ProgressInfo = {
-	showProgressBar: showProgressBar,
-
-	hideProgressBar: hideProgressBar,
-
-	maxProgressValue: 100,
-
-	currentStartFragment: 0,
-
-	message: '',
-
-	isStart: false,
-};
-
-function showProgressBar(currentProgressValue) {
-	if (!this.isStart) {
-		i_csv_progress.hidden = false;
-		i_csv_progress_info.textContent = this.message;
-		i_csv_progress.max = this.maxProgressValue;
-		this.isStart = true;
-	}
-
-	i_csv_progress_info.textContent =
-		this.message +
-		' ' +
-		Math.round(
-			((this.currentStartFragment + currentProgressValue) * 100.0) /
-				this.maxProgressValue
-		) +
-		'%';
-
-	i_csv_progress.value = this.currentStartFragment + currentProgressValue;
-
-	if (currentProgressValue == this.maxProgressValue) {
-		i_csv_progress_info.textContent = 'Sending comleted';
-		this.isStart = false;
-	}
-}
-
-function hideProgressBar() {
-	i_csv_progress.hidden = true;
-	i_csv_progress_info.textContent = '';
-}
+let ProgressInfo = null;
 
 /**********************************************************************
  * Отправляет данные из formData:FormData в formData.action.
@@ -128,25 +83,22 @@ function hideProgressBar() {
  * @param formData {FormData} данные формы
  *
  */
-function sendData(formData) {
+function sendData(formData, onProgress = false) {
 	return new Promise((resolve, reject) => {
 		//ajax
 		let HttpRequest = new XMLHttpRequest();
 		HttpRequest.onload = function (e) {
 			//Проверка что результат отчета успешный (может быть 404 или другие)
 			if (this.status == 200) {
-				// Устанавливаем прогрессбар на 100%.
-				ProgressInfo.showProgressBar(ProgressInfo.maxProgressValue);
-
 				return resolve(HttpRequest.response); // Успешно.
 			} else {
 				return reject(new Error(HttpRequest.statusText)); // Ошибка.
 			}
 		};
 
-		HttpRequest.onprogress = function (event) {
-			ProgressInfo.showProgressBar(event.loaded);
-		};
+		if (onProgress) {
+			HttpRequest.upload.onprogress = onProgress;
+		}
 
 		HttpRequest.open('POST', form.action, true);
 		HttpRequest.send(formData); //Отправка запроса на сервер
@@ -176,6 +128,7 @@ async function SendPartFile(
 	searchArr
 ) {
 	const formData = new FormData(form);
+	formData.delete('FILE_CSV');
 
 	formData.append('file-data', str);
 	formData.append('file-index-part', index);
@@ -186,8 +139,17 @@ async function SendPartFile(
 
 	formData.append('search_arr', JSON.stringify(searchArr));
 
+	let onProgress = function (event) {
+		if (event.lengthComputable) {
+			ProgressInfo?.showProgressBar(
+				event.loaded / event.total,
+				false
+			);
+		}
+	};
+
 	// Отправляем данные формы.
-	return sendData(formData)
+	return sendData(formData, onProgress)
 		.then((response) => JSON.parse(response))
 		.catch((error) => Message(error));
 }
@@ -262,8 +224,17 @@ async function SendFile(response) {
 	var overlapBefore = 0;
 	var overlapAfter = OVERLAP;
 
-	ProgressInfo.maxProgressValue = file.size;
-	ProgressInfo.message = 'Sending file ' + file.name;
+	let message = (value) => {
+		i_csv_progress_info.textContent =
+			value != false
+				? 'Sending file ' + file.name + ' ' + value + '%'
+				: '';
+	};
+
+	const progressElement = document.getElementById('i_csv_progress');
+	if (ProgressInfo == null)
+		ProgressInfo = new ProgressBar(progressElement, file.size, message);
+	else ProgressInfo.init(progressElement, file.size, message);
 
 	ProgressInfo.showProgressBar(0);
 
@@ -298,7 +269,8 @@ async function SendFile(response) {
 		let searchArr = new Uint8Array(await getSearchArr(blob, overlapBefore));
 
 		// Начало текущего фрагмента в файле для прогресс бара.
-		ProgressInfo.currentStartFragment = currentBlob.begin;
+		ProgressInfo.startFragment = currentBlob.begin;
+		ProgressInfo.lengthFragment = currentBlob.size;
 
 		// Передаём данные.
 		var res = await SendPartFile(
@@ -310,7 +282,10 @@ async function SendFile(response) {
 			searchArr
 		);
 
-		if (res.result == 'end') Message('Данные переданы успешно');
+		if (res.result == 'end') {
+			Message('Данные переданы успешно');
+			i_csv_progress_info.textContent = 'Sending comleted';
+		}
 
 		currentBlob.index++;
 
@@ -328,7 +303,7 @@ async function SendFile(response) {
  *   Добавляет набор в форму.
  */
 function _getFieldNamesFromFile(input, items, not_used_message) {
-	ProgressInfo.hideProgressBar();
+	ProgressInfo?.hideProgressBar();
 
 	let file = input.files[0];
 
@@ -478,7 +453,7 @@ function _getFieldNamesFromFile(input, items, not_used_message) {
  *   Возвращает элемент с id = 'place_to_select_field_names'.
  */
 function clearAndGetElement() {
-	ProgressInfo.hideProgressBar();
+	ProgressInfo?.hideProgressBar();
 
 	// Скрываем заголовок.
 	document.getElementById('field_names_header').style.display = 'none';

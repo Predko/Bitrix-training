@@ -115,6 +115,8 @@ Loc::loadMessages(__FILE__);
 				"<?= Loc::getMessage('PREDKO_CUSTOMERS_IMPORT_CSV_NOT_USED') ?>");
 		}
 	</script>
+	<!-- <script type="module" src = "<?=$templateFolder . "\js\modules\ProgressBar.js"?>"></script> -->
 </div>
 
 <? $this->addExternalJS($templateFolder . "\js\import_csv.js"); ?>
+<? CUtil::InitJSCore(array('import_csv')); ?>
